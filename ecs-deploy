@@ -28,6 +28,9 @@ RUN_TASK_NETWORK_CONFIGURATION=false
 RUN_TASK_WAIT_FOR_SUCCESS=false
 TASK_DEFINITION_TAGS=false
 COPY_TASK_DEFINITION_TAGS=false
+SPECIAL_TAG_DELIMITER='---'  # Used for special tags as a unique separator; anything after
+                             # this delimiter in the tag name will be preserved when replacing
+                             # the ECS task definition.
 
 function usage() {
     cat <<EOM
@@ -365,7 +368,7 @@ function createNewTaskDefJson() {
             | jq '.taskDefinition' )
     else
       DEF=$( echo "$taskDefinition" \
-            | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${useImage}\"|g" \
+            | sed -e "s|\(\"image\": *\".*:\)\([^-]*\)\(${SPECIAL_TAG_DELIMITER}.*\)\?\"|\\1${useImage}\\3\"|g" \
             | jq '.taskDefinition' )
     fi
 
