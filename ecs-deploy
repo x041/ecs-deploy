@@ -465,8 +465,14 @@ function updateService() {
                 | jq -r '.taskArns[]')
 
             if [[ ! -z $RUNNING_TASKS ]] ; then
-                RUNNING=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks $RUNNING_TASKS \
-                    | jq ".tasks[]| if .taskDefinitionArn == \"$NEW_TASKDEF\" then . else empty end|.${checkFieldName}" \
+                # describe-tasks accepts at most 100 task IDs, so batch them
+                RUNNING_TASKS_ARR=($RUNNING_TASKS)
+                DESCRIBED_TASKS=""
+                for ((BATCH_START=0; BATCH_START < ${#RUNNING_TASKS_ARR[@]}; BATCH_START+=100)); do
+                    DESCRIBED_TASKS+=$($AWS_ECS describe-tasks --cluster "$CLUSTER" --tasks ${RUNNING_TASKS_ARR[@]:$BATCH_START:100})$'\n'
+                done
+                RUNNING=$(echo "$DESCRIBED_TASKS" \
+                    | jq -s '.[].tasks[] | select(.taskDefinitionArn == "'"$NEW_TASKDEF"'") | .'"${checkFieldName}" \
                     | grep -e "${checkFieldValue}") || :
 
                 if [ "$RUNNING" ]; then
